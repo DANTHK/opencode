@@ -103,15 +103,7 @@ for (const direction of ["ltr", "rtl"] as const) {
       await expect(models).toBeHidden()
       await expect(model).toBeFocused()
 
-      if (paid) {
-        await model.click()
-        await models.getByRole("button", { name: "Manage models", exact: true }).click()
-        await expect(models).toBeHidden()
-        await expect(page.getByRole("dialog", { name: "Manage models", exact: true })).toBeVisible()
-        await expect(page.getByRole("dialog")).toHaveCount(1)
-
-        return
-      }
+      if (paid) return
 
       await model.click()
       await models.getByRole("button", { name: "Connect provider", exact: true }).click()
@@ -133,11 +125,137 @@ for (const direction of ["ltr", "rtl"] as const) {
     await expect(page.locator('[data-slot="mobile-drawer-content"]')).toHaveCount(0)
     const model = composer.locator('[data-action="composer-model"]')
     await expect(model).toHaveAttribute("data-control-type", "popover")
+    await model.hover()
+    const details = page.getByRole("tooltip")
+    await expect(details.getByText("Mobile Model A", { exact: true })).toBeVisible()
+    await expect(details.getByText("OpenCode", { exact: true })).toBeVisible()
+    await expect(details.getByText("1,000,000", { exact: true })).toBeVisible()
+    await expect(details.getByText("Input & Output", { exact: true })).toBeVisible()
+    await expect(details.getByText("Image", { exact: true })).toBeVisible()
+    await expect(details.getByText("PDF", { exact: true })).toBeVisible()
     await model.click()
     await expect(page.getByPlaceholder("Search models", { exact: true })).toBeFocused()
-    await page.getByRole("menuitemradio", { name: /Mobile Model B/ }).click()
+    const manage = page.getByRole("button", { name: "Manage models", exact: true })
+    await expect(manage).toHaveText("")
+    await manage.focus()
+    await expect(manage).toBeFocused()
+    await manage.press("Enter")
+    await expect(model).toHaveText("Mobile Model A")
+    const manageDialog = page.getByRole("dialog", { name: "Manage models", exact: true })
+    await expect(manageDialog).toBeVisible()
+    await expect(page.getByPlaceholder("Search models", { exact: true })).toHaveCount(1)
+    await page.keyboard.press("Escape")
+    await expect(manageDialog).toBeHidden()
+    await model.click()
+    await expect(page.getByPlaceholder("Search models", { exact: true })).toBeFocused()
+    const search = page.getByPlaceholder("Search models", { exact: true })
+    const prompt = composer.getByRole("textbox", { name: "Prompt", exact: true })
+    const rowA = page.getByRole("menuitem", { name: /Mobile Model A/ })
+    const rowB = page.getByRole("menuitem", { name: /Mobile Model B/ })
+    const rowC = page.getByRole("menuitemradio", { name: "Mobile Model C", exact: true })
+    await rowC.hover()
+    await expect(rowC).toHaveAttribute("data-highlighted", "")
+    const summary = page.getByRole("tooltip")
+    await expect(summary).toHaveText("OpenCode · 262K contextText")
+    await expect(summary.getByRole("menuitemradio")).toHaveCount(0)
+    await expect(summary).not.toHaveAttribute("data-instant")
+    await rowB.hover()
+    await expect(summary).toBeHidden()
+    await expect(page.getByRole("menuitemradio", { name: "Default", exact: true })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    )
+    await rowC.hover()
+    await expect(page.getByRole("menuitemradio", { name: "Default", exact: true })).toBeHidden()
+    await expect(summary).toHaveAttribute("data-instant", "")
+    await rowA.hover()
+    await expect(page.getByRole("menuitemradio", { name: "high", exact: true })).toHaveAttribute("aria-checked", "true")
+    await expect(summary).toBeHidden()
+    await rowA.hover()
+    await page.keyboard.press("ArrowDown")
+    await expect(search).toBeFocused()
+    await page.keyboard.press("Enter")
     await expect(model).toHaveText("Mobile Model B")
+    await expect(prompt).toBeFocused()
+    await model.click()
+    await expect(search).toBeFocused()
+    await rowA.hover()
+    await expect(page.getByRole("menuitemradio", { name: "high", exact: true })).toHaveAttribute("aria-checked", "true")
+    await page.getByRole("menuitemradio", { name: "high", exact: true }).hover()
+    const flyout = page.getByRole("menu").filter({ has: page.getByRole("menuitemradio", { name: "max", exact: true }) })
+    await expect(flyout.getByText("OpenCode · 1M context", { exact: true })).toBeVisible()
+    await expect(flyout.getByText("Text, Image, PDF, Tools", { exact: true })).toBeVisible()
+    await page.getByRole("menuitemradio", { name: "max", exact: true }).click()
+    await expect(model).toHaveText("Mobile Model A")
+    await expect(variant).toHaveText("max")
+    await expect(prompt).toBeFocused()
+
+    await model.click()
+    await expect(search).toBeFocused()
+    await search.fill("no-matching-model")
+    await search.press("ArrowDown")
+    await search.press("Enter")
+    await expect(search).toBeFocused()
+    await expect(model).toHaveText("Mobile Model A")
+    await search.fill("")
+    await rowB.hover()
+    await expect(page.getByRole("menuitemradio", { name: "Default", exact: true })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    )
+    await page.getByRole("menuitemradio", { name: "Default", exact: true }).hover()
+    await page.getByRole("menuitemradio", { name: "balanced", exact: true }).click()
+    await expect(model).toHaveText("Mobile Model B")
+    await expect(variant).toHaveText("balanced")
     await expect(page.locator('[data-slot="mobile-drawer-content"]')).toHaveCount(0)
+    await expect(prompt).toBeFocused()
+    await model.click()
+    await expect(search).toBeFocused()
+    await search.press(direction === "rtl" ? "ArrowLeft" : "ArrowRight")
+    await expect(rowB).toContainText("high")
+    await expect(page.getByRole("menuitemradio", { name: "high", exact: true })).toBeHidden()
+    await search.press("ArrowUp")
+    await search.press(direction === "rtl" ? "ArrowRight" : "ArrowLeft")
+    await expect(rowA).toContainText("high")
+    await expect(page.getByRole("menuitemradio", { name: "high", exact: true })).toBeHidden()
+    await search.press("Enter")
+    await expect(model).toHaveText("Mobile Model A")
+    await expect(variant).toHaveText("high")
+    await expect(prompt).toBeFocused()
+
+    await model.click()
+    await expect(search).toBeFocused()
+    await search.press(direction === "rtl" ? "ArrowRight" : "ArrowLeft")
+    await expect(rowA).toContainText("balanced")
+    await search.press("Escape")
+    await expect(search).toBeHidden()
+    await expect(variant).toHaveText("high")
+    await expect(prompt).toBeFocused()
+
+    await model.click()
+    await expect(search).toBeFocused()
+    await rowB.click()
+    await expect(model).toHaveText("Mobile Model B")
+    await expect(variant).toHaveText("balanced")
+    await expect(prompt).toBeFocused()
+    await model.click()
+    await expect(search).toBeFocused()
+    await expect(page.getByRole("menuitemradio", { name: "max", exact: true })).toBeHidden()
+    await search.press("Escape")
+    await expect(search).toBeHidden()
+    // Closing restores focus a few frames later; a picker opened before then would close again.
+    await expect(prompt).toBeFocused()
+
+    await prompt.fill("keep me")
+    await prompt.press("ControlOrMeta+Shift+Quote")
+    await expect(search).toBeFocused()
+    await expect(page.getByRole("dialog", { name: "Select model", exact: true })).toHaveCount(0)
+    await search.press("ArrowUp")
+    await search.press("Enter")
+    await expect(search).toBeHidden()
+    await expect(model).toHaveText("Mobile Model A")
+    await expect(prompt).toBeFocused()
+    await expect(prompt).toHaveText("keep me")
   })
 }
 
@@ -188,14 +306,19 @@ async function openPickerSession(page: Page, direction: "ltr" | "rtl", paid: boo
           id: "opencode",
           name: "OpenCode",
           models: Object.fromEntries(
-            ["a", "b"].map((id) => [
+            ["a", "b", "c"].map((id) => [
               `mobile-${id}`,
               {
                 id: `mobile-${id}`,
                 name: `Mobile Model ${id.toUpperCase()}`,
                 cost: { input: paid ? 1 : 0, output: paid ? 1 : 0 },
-                limit: { context: 200_000 },
-                variants: { balanced: {}, high: {} },
+                limit: { context: id === "c" ? 262_144 : 1_000_000 },
+                capabilities: {
+                  tools: id !== "c",
+                  input: id === "c" ? ["text"] : ["text", "image", "pdf"],
+                  output: ["text"],
+                },
+                variants: id === "c" ? {} : { balanced: {}, high: {}, max: {} },
               },
             ]),
           ),
@@ -212,7 +335,7 @@ async function openPickerSession(page: Page, direction: "ltr" | "rtl", paid: boo
     localStorage.setItem(
       "opencode.global.dat:model",
       JSON.stringify({
-        user: ["a", "b"].map((id) => ({ providerID: "opencode", modelID: `mobile-${id}`, visibility: "show" })),
+        user: ["a", "b", "c"].map((id) => ({ providerID: "opencode", modelID: `mobile-${id}`, visibility: "show" })),
         recent: [],
         variant: {},
       }),

@@ -1,6 +1,18 @@
 import { Popover } from "@kobalte/core/popover"
-import { Component, ComponentProps, createEffect, createMemo, For, JSX, Show, Suspense, lazy, on } from "solid-js"
-import { createStore } from "solid-js/store"
+import {
+  Component,
+  ComponentProps,
+  createEffect,
+  createMemo,
+  For,
+  JSX,
+  Show,
+  Suspense,
+  lazy,
+  on,
+  onCleanup,
+} from "solid-js"
+import { createStore, reconcile } from "solid-js/store"
 import { createMediaQuery } from "@solid-primitives/media"
 import { useLocal, type ModelSelection } from "@/providers/models/selection"
 import { useDialog } from "@opencode/ui/context/dialog"
@@ -10,10 +22,11 @@ import { Badge } from "@opencode/ui/badge"
 import { Dialog, DialogBody, DialogHeader, DialogTitleGroup } from "@opencode/ui/dialog"
 import { Icon } from "@opencode/ui/icon"
 import { ScrollView } from "@opencode/ui/scroll-view"
-import { Tooltip } from "@opencode/ui/tooltip"
+import { Tooltip, TooltipGroup, useTooltipGroup } from "@opencode/ui/tooltip"
 import { Menu } from "@opencode/ui/menu"
 import { TextInput } from "@opencode/ui/text-input"
 import { ModelTooltip } from "./tooltip"
+import { ModelDetails } from "./details"
 import { useLanguage } from "@/runtime/i18n/language"
 import { ExternalLink } from "@/runtime/platform/external-link"
 import { useData } from "@/runtime/server/current"
@@ -49,8 +62,6 @@ type ModelItem = ReturnType<ModelState["list"]>[number]
 
 const modelKey = (model: ModelItem) => `${model.provider.id}:${model.id}`
 
-const manageKey = "action:manage"
-
 const sortModelGroups = (a: { category: string; items: ModelItem[] }, b: { category: string; items: ModelItem[] }) => {
   const aIndex = popularProviders.indexOf(a.category)
   const bIndex = popularProviders.indexOf(b.category)
@@ -81,7 +92,11 @@ const ModelList: Component<{
     onSelect: props.onSelect,
   })
 
-  const [store, setStore] = createStore<{ search: string; active: string; collapsed: Record<string, boolean> }>({
+  const [store, setStore] = createStore<{
+    search: string
+    active: string
+    collapsed: Record<string, boolean>
+  }>({
     search: "",
     active: props.mobile ? (controller.current() ?? "") : "",
     collapsed: {},
@@ -262,6 +277,7 @@ export function ModelSelectorPopover(props: {
   unpaid?: boolean
   trigger: ModelSelectorTrigger
   onClose?: () => void
+  ref?: (open: () => void) => void
 }) {
   const dialog = useDialog()
   const mobile = createMediaQuery("(max-width: 767px)")
@@ -306,19 +322,21 @@ export function ModelSelectorPopover(props: {
           current={controller.current()}
           chatgptPlan={chatgptPlan()}
           select={controller.select}
+          variant={controller.variant}
           onManage={manage}
           onClose={() => props.onClose?.()}
+          ref={props.ref}
         />
       }
     >
       <ModelSelectorDrawer
+        ref={props.ref}
         trigger={props.trigger}
         model={props.model}
         provider={props.provider}
         onConnect={props.unpaid ? connect : undefined}
         chatgptPlan={chatgptPlan()}
         onClose={() => props.onClose?.()}
-        onManage={manage}
       />
     </Show>
   )
@@ -330,8 +348,8 @@ function ModelSelectorDrawer(props: {
   provider?: string
   chatgptPlan?: boolean
   onClose: () => void
-  onManage: () => void
   onConnect?: () => void
+  ref?: (open: () => void) => void
 }) {
   const language = useLanguage()
 
@@ -339,12 +357,14 @@ function ModelSelectorDrawer(props: {
     open: boolean
     loaded: boolean
     restoreTrigger: boolean
-    action?: "select" | "manage" | "connect"
+    action?: "select" | "connect"
   }>({
     open: false,
     loaded: false,
     restoreTrigger: true,
   })
+
+  props.ref?.(() => setStore({ open: true, loaded: true, restoreTrigger: true }))
 
   let trigger: HTMLDivElement | undefined
   let content: HTMLDivElement | undefined
@@ -377,12 +397,6 @@ function ModelSelectorDrawer(props: {
               const action = store.action
               setStore("action", undefined)
 
-              if (action === "manage") {
-                props.onManage()
-
-                return
-              }
-
               if (action === "connect") {
                 props.onConnect?.()
 
@@ -407,39 +421,33 @@ function ModelSelectorDrawer(props: {
                   onSelect={() => setStore({ open: false, action: "select", restoreTrigger: false })}
                 />
               </div>
-              <div data-slot="model-selector-actions" class="flex flex-col gap-2">
-                <Button
-                  variant="ghost"
-                  class="w-full !h-10 !justify-start"
-                  icon="outline-sliders"
-                  onClick={() => setStore({ open: false, action: "manage", restoreTrigger: false })}
-                >
-                  {language.t("dialog.model.manage")}
-                </Button>
-                <Show when={props.onConnect}>
-                  <Button
-                    variant="ghost"
-                    class="w-full !h-10 !justify-start"
-                    icon="plus"
-                    onClick={() => setStore({ open: false, action: "connect", restoreTrigger: false })}
-                  >
-                    {language.t("command.provider.connect")}
-                  </Button>
-                </Show>
-                <Show when={props.chatgptPlan}>
-                  <div class="flex min-h-10 items-center gap-2 border-t border-v2-border-border-muted px-3 py-2 text-[13px] leading-5 text-v2-text-text-base">
-                    <ProviderModelIcon provider={{ id: "openai", name: "OpenAI" }} class="shrink-0" />
-                    <span class="min-w-0 flex-1 truncate">{language.t("dialog.model.chatgptPlan")}</span>
-                    <ExternalLink
-                      href="https://chatgpt.com/settings/usage"
-                      class="flex shrink-0 items-center gap-1 rounded-sm text-v2-text-text-muted no-underline hover:text-v2-text-text-base focus-visible:outline focus-visible:outline-2"
+              <Show when={props.onConnect || props.chatgptPlan}>
+                <div data-slot="model-selector-actions" class="flex flex-col gap-2">
+                  <Show when={props.onConnect}>
+                    <Button
+                      variant="ghost"
+                      class="w-full !h-10 !justify-start"
+                      icon="plus"
+                      onClick={() => setStore({ open: false, action: "connect", restoreTrigger: false })}
                     >
-                      {language.t("dialog.model.chatgptManageUsage")}
-                      <Icon name="arrow-up-right" size="small" />
-                    </ExternalLink>
-                  </div>
-                </Show>
-              </div>
+                      {language.t("command.provider.connect")}
+                    </Button>
+                  </Show>
+                  <Show when={props.chatgptPlan}>
+                    <div class="flex min-h-10 items-center gap-2 border-t border-v2-border-border-muted px-3 py-2 text-[13px] leading-5 text-v2-text-text-base">
+                      <ProviderModelIcon provider={{ id: "openai", name: "OpenAI" }} class="shrink-0" />
+                      <span class="min-w-0 flex-1 truncate">{language.t("dialog.model.chatgptPlan")}</span>
+                      <ExternalLink
+                        href="https://chatgpt.com/settings/usage"
+                        class="flex shrink-0 items-center gap-1 rounded-sm text-v2-text-text-muted no-underline hover:text-v2-text-text-base focus-visible:outline focus-visible:outline-2"
+                      >
+                        {language.t("dialog.model.chatgptManageUsage")}
+                        <Icon name="arrow-up-right" size="small" />
+                      </ExternalLink>
+                    </div>
+                  </Show>
+                </div>
+              </Show>
             </div>
           </MobilePanelDrawer>
         </Suspense>
@@ -487,10 +495,13 @@ function createModelSelectorController(input: {
 
       return value ? modelKey(value) : undefined
     },
-    select: (item: ModelItem) => {
+    select: (item: ModelItem, variant?: string | null) => {
       model.set({ modelID: item.id, providerID: item.provider.id }, { recent: true })
+
+      if (variant !== undefined) model.variant.set(variant ?? undefined)
       input.onSelect()
     },
+    variant: (item: ModelItem) => model.variant.current({ providerID: item.provider.id, modelID: item.id }),
   }
 }
 
@@ -501,23 +512,49 @@ export function ModelSelectorPopoverView(props: {
   groups: (models: ModelItem[]) => { category: string; items: ModelItem[] }[]
   current: string | undefined
   chatgptPlan?: boolean
-  select: (item: ModelItem) => void
+  select: (item: ModelItem, variant?: string | null) => void
+  variant: ReturnType<typeof createModelSelectorController>["variant"]
   onManage: () => void
   onClose: () => void
+  ref?: (open: () => void) => void
 }) {
   const language = useLanguage()
-  const [store, setStore] = createStore({ open: false, search: "", active: "" })
+  const [store, setStore] = createStore({ open: false, search: "", active: "", keyboard: true, flyout: "" })
+  const [variants, setVariants] = createStore<Record<string, string | null>>({})
   let searchRef: HTMLInputElement | undefined
   let contentRef: HTMLDivElement | undefined
+  let flyoutRef: HTMLDivElement | undefined
   const dismiss = createMenuDismissController(() => contentRef)
 
   const models = createMemo(() => props.models(store.search))
   const groups = createMemo(() => props.groups(models()))
-  const keys = () => [...groups().flatMap((group) => group.items.map(modelKey)), manageKey]
+  const keys = () => groups().flatMap((group) => group.items.map(modelKey))
+
+  const variant = (item: ModelItem) => {
+    const staged = variants[modelKey(item)]
+
+    return staged === undefined ? props.variant(item) : (staged ?? undefined)
+  }
+
+  const cycleVariant = (item: ModelItem, key: string) => {
+    const options = [undefined, ...Object.keys(item.variants ?? {})]
+    const direction = (key === "ArrowRight") !== (language.direction() === "rtl") ? 1 : -1
+    const index = options.indexOf(variant(item))
+    setVariants(modelKey(item), options[(index + direction + options.length) % options.length] ?? null)
+    setStore({ keyboard: true, flyout: "" })
+  }
 
   const managed = createMemo(() => consoleModelGroup(props.all()))
   const managedIDs = createMemo(() => new Set(managed()?.providers.map((provider) => provider.id)))
   const canonical = (provider: ModelItem["provider"]) => provider.canonical ?? provider.id.replace(/^console-/, "")
+
+  const providerName = (item: ModelItem) => {
+    const group = managed()
+
+    return group && managedIDs().has(item.provider.id)
+      ? consoleProviderName(group, item.provider.name)
+      : item.provider.name
+  }
 
   // The workspace badge only disambiguates a managed provider that is also connected directly.
   const direct = createMemo(
@@ -544,8 +581,9 @@ export function ModelSelectorPopoverView(props: {
 
   const setOpen = (open: boolean) => {
     if (open) {
+      setVariants(reconcile({}))
       dismiss.allowTriggerRestore()
-      setStore({ open: true, active: initialActive() })
+      setStore({ open: true, active: initialActive(), keyboard: true })
       setTimeout(() =>
         requestAnimationFrame(() => {
           searchRef?.focus()
@@ -556,13 +594,16 @@ export function ModelSelectorPopoverView(props: {
       return
     }
 
-    setStore({ open: false, search: "", active: "" })
+    setStore({ open: false, search: "", active: "", flyout: "" })
   }
 
-  const selectModel = (item: ModelItem) => {
+  props.ref?.(() => setOpen(true))
+
+  const selectModel = (item: ModelItem, variant?: string | null) => {
+    const selected = variant === undefined ? variants[modelKey(item)] : variant
     dismiss.preventTriggerRestore()
     setOpen(false)
-    dismiss.afterClose(() => props.select(item))
+    dismiss.afterClose(() => props.select(item, selected))
   }
 
   const manage = () => {
@@ -574,13 +615,7 @@ export function ModelSelectorPopoverView(props: {
   const selectActive = () => {
     const item = models().find((item) => modelKey(item) === store.active)
 
-    if (item) {
-      selectModel(item)
-
-      return
-    }
-
-    if (store.active === manageKey) manage()
+    if (item) selectModel(item)
   }
 
   const moveActive = (delta: number) => {
@@ -589,13 +624,48 @@ export function ModelSelectorPopoverView(props: {
     if (options.length === 0) return
     const index = options.indexOf(store.active)
     const start = index === -1 ? 0 : index
-    setStore("active", options[(start + delta + options.length) % options.length])
+    setStore({ active: options[(start + delta + options.length) % options.length], keyboard: true, flyout: "" })
     queueMicrotask(() => activeItem()?.scrollIntoView({ block: "nearest" }))
   }
 
   const setSearch = (value: string) => {
     const first = props.models(value)[0]
-    setStore({ search: value, active: first ? modelKey(first) : manageKey })
+    setStore({ search: value, active: first ? modelKey(first) : "", keyboard: true, flyout: "" })
+  }
+
+  const navigate = (event: KeyboardEvent) => {
+    if (event.altKey || event.metaKey || event.ctrlKey || event.shiftKey || event.isComposing) return false
+
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault()
+      event.stopPropagation()
+      moveActive(event.key === "ArrowDown" ? 1 : -1)
+      queueMicrotask(() => searchRef?.focus())
+
+      return true
+    }
+
+    if (!store.search && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      const item = models().find((item) => modelKey(item) === store.active)
+
+      if (!item || !Object.keys(item.variants ?? {}).length) return false
+      event.preventDefault()
+      event.stopPropagation()
+      cycleVariant(item, event.key)
+      queueMicrotask(() => searchRef?.focus())
+
+      return true
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault()
+      event.stopPropagation()
+      selectActive()
+
+      return true
+    }
+
+    return false
   }
 
   createEffect(() => {
@@ -603,7 +673,15 @@ export function ModelSelectorPopoverView(props: {
     createEventListener(
       document,
       "keydown",
-      (event: KeyboardEvent) => handleDocumentSearchKeydown(searchRef, event, store.search, setSearch),
+      (event: KeyboardEvent) => {
+        if (event.target instanceof Node && flyoutRef?.contains(event.target)) return
+        const target = event.target
+
+        // Buttons keep their own Enter activation.
+        if (target instanceof Element && !target.closest("button") && contentRef?.contains(target) && navigate(event))
+          return
+        handleDocumentSearchKeydown(searchRef, event, store.search, setSearch)
+      },
       true,
     )
   })
@@ -646,26 +724,7 @@ export function ModelSelectorPopoverView(props: {
                     return
                   }
 
-                  if (event.altKey || event.metaKey) return
-
-                  if (event.key === "ArrowDown") {
-                    event.preventDefault()
-                    moveActive(1)
-
-                    return
-                  }
-
-                  if (event.key === "ArrowUp") {
-                    event.preventDefault()
-                    moveActive(-1)
-
-                    return
-                  }
-
-                  if (event.key === "Enter" && !event.isComposing) {
-                    event.preventDefault()
-                    selectActive()
-                  }
+                  navigate(event)
                 }}
               />
               <Show when={store.search.trim()}>
@@ -679,105 +738,227 @@ export function ModelSelectorPopoverView(props: {
                   <Icon name="circle-xmark" />
                 </button>
               </Show>
+              <Tooltip placement="top" gutter={4} value={language.t("dialog.model.manage")} ignoreSafeArea={false}>
+                <button
+                  type="button"
+                  data-action="model-selector-manage"
+                  class="flex size-6 shrink-0 items-center justify-center rounded-sm bg-transparent text-v2-icon-icon-muted transition-colors hover:bg-v2-overlay-simple-overlay-hover hover:text-v2-icon-icon-base focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:text-v2-icon-icon-base focus-visible:outline-none"
+                  aria-label={language.t("dialog.model.manage")}
+                  onPointerDown={(event) => event.preventDefault()}
+                  onClick={manage}
+                >
+                  <Icon name="outline-sliders" size="small" />
+                </button>
+              </Tooltip>
             </div>
           </div>
           <div class="h-px bg-v2-border-border-muted" />
-          <ScrollView data-slot="model-selector-scroll" class="max-h-[220px] min-h-0">
-            <div class="flex flex-col p-0.5 pt-0">
-              <Show
-                when={models().length > 0}
-                fallback={
-                  <div class="flex h-12 items-center px-3 text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-faint">
-                    {language.t("dialog.model.empty")}
-                  </div>
-                }
-              >
-                <For each={groups()}>
-                  {(group) => (
-                    <Menu.Group>
-                      <Menu.GroupLabel
-                        class="gap-1.5 pe-3"
-                        style={{ "padding-inline-start": group.items[0].provider.id === "opencode" ? "10px" : "12px" }}
-                      >
-                        <ProviderModelIcon provider={group.items[0].provider} class="shrink-0" />
-                        <Show
-                          when={managedIDs().has(group.category) ? managed() : undefined}
-                          fallback={<span class="min-w-0 truncate">{group.items[0].provider.name}</span>}
+          <TooltipGroup>
+            <ScrollView data-slot="model-selector-scroll" class="max-h-[220px] min-h-0">
+              <div class="flex flex-col p-0.5 pt-0">
+                <Show
+                  when={models().length > 0}
+                  fallback={
+                    <div class="flex h-12 items-center px-3 text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-faint">
+                      {language.t("dialog.model.empty")}
+                    </div>
+                  }
+                >
+                  <For each={groups()}>
+                    {(group) => (
+                      <Menu.Group>
+                        <Menu.GroupLabel
+                          class="gap-1.5 pe-3"
+                          style={{
+                            "padding-inline-start": group.items[0].provider.id === "opencode" ? "10px" : "12px",
+                          }}
                         >
-                          {(workspace) => (
-                            <>
-                              <span class="min-w-0 truncate">
-                                {consoleProviderName(workspace(), group.items[0].provider.name)}
-                              </span>
-                              <Show when={direct().has(canonical(group.items[0].provider))}>
-                                <Badge class="shrink-0">{workspace().workspace}</Badge>
-                              </Show>
-                            </>
-                          )}
-                        </Show>
-                      </Menu.GroupLabel>
-                      <Menu.RadioGroup value={props.current}>
-                        <For each={group.items}>
-                          {(item) => (
-                            <Tooltip
-                              class="w-full"
-                              placement="right-start"
-                              gutter={6}
-                              openDelay={0}
-                              value={
-                                <ModelTooltip
-                                  model={item}
-                                  latest={item.latest}
-                                  free={isFree(item.provider.id, item.cost)}
-                                  v2
-                                />
-                              }
-                            >
-                              <Menu.RadioItem
-                                value={modelKey(item)}
-                                data-option-key={modelKey(item)}
-                                data-selected-model={props.current === modelKey(item) ? true : undefined}
-                                class="scroll-my-6 w-full"
-                                classList={{ "!bg-v2-overlay-simple-overlay-hover": store.active === modelKey(item) }}
-                                onMouseEnter={() => {
-                                  setStore("active", modelKey(item))
-                                  setTimeout(() => searchRef?.focus())
-                                }}
-                                onSelect={() => selectModel(item)}
-                              >
-                                <span class="min-w-0 truncate leading-5">{item.name}</span>
-                                <Show when={isFree(item.provider.id, item.cost)}>
-                                  <Badge class="shrink-0">{language.t("model.tag.free")}</Badge>
+                          <ProviderModelIcon provider={group.items[0].provider} class="shrink-0" />
+                          <Show
+                            when={managedIDs().has(group.category) ? managed() : undefined}
+                            fallback={<span class="min-w-0 truncate">{group.items[0].provider.name}</span>}
+                          >
+                            {(workspace) => (
+                              <>
+                                <span class="min-w-0 truncate">
+                                  {consoleProviderName(workspace(), group.items[0].provider.name)}
+                                </span>
+                                <Show when={direct().has(canonical(group.items[0].provider))}>
+                                  <Badge class="shrink-0">{workspace().workspace}</Badge>
                                 </Show>
-                                <Show when={item.latest}>
-                                  <Badge class="shrink-0">{language.t("model.tag.latest")}</Badge>
+                              </>
+                            )}
+                          </Show>
+                        </Menu.GroupLabel>
+                        <Menu.RadioGroup value={props.current}>
+                          <For each={group.items}>
+                            {(item) => {
+                              const handoff = useTooltipGroup()
+
+                              createEffect(
+                                on(
+                                  () => store.flyout === modelKey(item),
+                                  (open, previous) => {
+                                    if (open) handoff?.opened(modelKey(item))
+
+                                    if (!open && previous) handoff?.closed(modelKey(item))
+                                  },
+                                ),
+                              )
+                              // A search can remove the row before its effect sees the flyout close.
+                              onCleanup(() => handoff?.closed(modelKey(item)))
+
+                              return (
+                                <Show
+                                  when={Object.keys(item.variants ?? {}).length > 0}
+                                  fallback={
+                                    <Tooltip
+                                      class="w-full"
+                                      placement={language.direction() === "rtl" ? "left-start" : "right-start"}
+                                      gutter={4}
+                                      openDelay={100}
+                                      contentClass="!w-[200px] !p-0 !rounded-md"
+                                      value={
+                                        <ModelDetails model={item} provider={providerName(item)} compact standalone />
+                                      }
+                                    >
+                                      <Menu.RadioItem
+                                        value={modelKey(item)}
+                                        data-option-key={modelKey(item)}
+                                        data-selected-model={props.current === modelKey(item) ? true : undefined}
+                                        class="scroll-my-6 w-full"
+                                        classList={{
+                                          "!bg-v2-overlay-simple-overlay-hover": store.active === modelKey(item),
+                                        }}
+                                        onMouseMove={() => {
+                                          // Resizing search results can move a row under a stationary pointer.
+                                          if (!store.keyboard && store.active === modelKey(item)) return
+                                          setStore({ active: modelKey(item), keyboard: false })
+                                          setTimeout(() => searchRef?.focus())
+                                        }}
+                                        onMouseLeave={() => {
+                                          if (!store.keyboard) setStore("active", props.current ?? "")
+                                        }}
+                                        onSelect={() => selectModel(item)}
+                                      >
+                                        <span class="min-w-0 truncate leading-5">{item.name}</span>
+                                        <Show when={isFree(item.provider.id, item.cost)}>
+                                          <Badge class="shrink-0">{language.t("model.tag.free")}</Badge>
+                                        </Show>
+                                        <Show when={item.latest}>
+                                          <Badge class="shrink-0">{language.t("model.tag.latest")}</Badge>
+                                        </Show>
+                                      </Menu.RadioItem>
+                                    </Tooltip>
+                                  }
+                                >
+                                  <Menu.Sub
+                                    placement={language.direction() === "rtl" ? "left-start" : "right-start"}
+                                    gutter={4}
+                                    open={store.flyout === modelKey(item)}
+                                    onOpenChange={(open) => {
+                                      if (open && (!store.open || store.keyboard)) return
+
+                                      if (!open && store.flyout !== modelKey(item)) return
+
+                                      // The parent menu can retake focus while the pointer crosses into the RTL flyout.
+                                      if (
+                                        !open &&
+                                        document.activeElement === contentRef &&
+                                        flyoutRef?.matches(":hover")
+                                      )
+                                        return
+                                      setStore("flyout", open ? modelKey(item) : "")
+                                    }}
+                                  >
+                                    <Menu.SubTrigger
+                                      data-option-key={modelKey(item)}
+                                      aria-current={props.current === modelKey(item) ? "true" : undefined}
+                                      class="scroll-my-6 w-full [&>svg]:hidden"
+                                      classList={{
+                                        "!bg-v2-overlay-simple-overlay-hover": store.active === modelKey(item),
+                                      }}
+                                      onMouseMove={() => setStore({ active: modelKey(item), keyboard: false })}
+                                      onPointerMove={(event) => {
+                                        if (event.pointerType !== "mouse" || !store.open) return
+
+                                        if (store.flyout === modelKey(item) || !handoff?.warm(modelKey(item))) return
+                                        // Kobalte prevents the event after this handler while the pointer heads into an
+                                        // open flyout.
+                                        queueMicrotask(() => {
+                                          if (event.defaultPrevented) return
+                                          setStore({ active: modelKey(item), keyboard: false, flyout: modelKey(item) })
+                                        })
+                                      }}
+                                      onFocus={() => setStore("active", modelKey(item))}
+                                      onMouseLeave={() => {
+                                        if (!store.keyboard && store.flyout !== modelKey(item))
+                                          setStore("active", props.current ?? "")
+                                      }}
+                                      onClick={(event) => {
+                                        event.preventDefault()
+                                        selectModel(item)
+                                      }}
+                                    >
+                                      <span class="min-w-0 flex-1 truncate leading-5">{item.name}</span>
+                                      <Show when={isFree(item.provider.id, item.cost)}>
+                                        <Badge class="shrink-0">{language.t("model.tag.free")}</Badge>
+                                      </Show>
+                                      <Show when={item.latest}>
+                                        <Badge class="shrink-0">{language.t("model.tag.latest")}</Badge>
+                                      </Show>
+                                      <span
+                                        class="w-[60px] shrink-0 truncate text-end capitalize leading-5 text-v2-text-text-muted"
+                                        classList={{
+                                          invisible:
+                                            props.current !== modelKey(item) && store.active !== modelKey(item),
+                                        }}
+                                      >
+                                        {variant(item) ?? language.t("common.default")}
+                                      </span>
+                                      <span class="flex size-4 shrink-0 items-center justify-center">
+                                        <Show when={props.current === modelKey(item)}>
+                                          <Icon name="check" size="small" />
+                                        </Show>
+                                      </span>
+                                    </Menu.SubTrigger>
+                                    <Menu.Portal>
+                                      <Menu.SubContent
+                                        ref={(element: HTMLDivElement) => (flyoutRef = element)}
+                                        class="w-[200px] max-h-[400px] overflow-y-auto rounded-md border-0 bg-v2-background-bg-layer-01 !animate-none !p-0 shadow-[var(--v2-elevation-floating)] focus:outline-none"
+                                      >
+                                        <Menu.RadioGroup value={variant(item) ?? "default"} class="p-0.5">
+                                          <For each={["default", ...Object.keys(item.variants ?? {})]}>
+                                            {(variant) => (
+                                              <Menu.RadioItem
+                                                value={variant}
+                                                onSelect={() =>
+                                                  selectModel(item, variant === "default" ? null : variant)
+                                                }
+                                              >
+                                                <span class="min-w-0 flex-1 truncate capitalize leading-5">
+                                                  {variant === "default" ? language.t("common.default") : variant}
+                                                </span>
+                                              </Menu.RadioItem>
+                                            )}
+                                          </For>
+                                        </Menu.RadioGroup>
+                                        <ModelDetails model={item} provider={providerName(item)} compact />
+                                      </Menu.SubContent>
+                                    </Menu.Portal>
+                                  </Menu.Sub>
                                 </Show>
-                              </Menu.RadioItem>
-                            </Tooltip>
-                          )}
-                        </For>
-                      </Menu.RadioGroup>
-                    </Menu.Group>
-                  )}
-                </For>
-              </Show>
-            </div>
-          </ScrollView>
-          <div class="h-px bg-v2-border-border-muted" />
-          <div class="flex flex-col p-0.5">
-            <Menu.Item
-              data-option-key={manageKey}
-              classList={{ "!bg-v2-overlay-simple-overlay-hover": store.active === manageKey }}
-              onMouseEnter={() => {
-                setStore("active", manageKey)
-                setTimeout(() => searchRef?.focus())
-              }}
-              onSelect={manage}
-            >
-              <Icon name="outline-sliders" size="small" />
-              <span class="min-w-0 flex-1 truncate leading-5">{language.t("dialog.model.manage")}</span>
-            </Menu.Item>
-          </div>
+                              )
+                            }}
+                          </For>
+                        </Menu.RadioGroup>
+                      </Menu.Group>
+                    )}
+                  </For>
+                </Show>
+              </div>
+            </ScrollView>
+          </TooltipGroup>
           <Show when={props.chatgptPlan}>
             <div class="h-px bg-v2-border-border-muted" />
             <div class="flex min-h-10 items-center gap-2 px-3 py-2 text-[13px] leading-5 text-v2-text-text-base">
@@ -810,12 +991,6 @@ export const DialogSelectModel: Component<{ provider?: string; model?: ModelStat
     })
   }
 
-  const manage = () => {
-    void import("./manage").then((x) => {
-      dialog.show(() => <x.DialogManageModels />)
-    })
-  }
-
   return (
     <Dialog size="large" variant="settings">
       <DialogHeader hideClose closeLabel={language.t("common.close")}>
@@ -826,16 +1001,6 @@ export const DialogSelectModel: Component<{ provider?: string; model?: ModelStat
       </DialogHeader>
       <DialogBody class="flex min-h-0 flex-1 flex-col">
         <ModelList provider={props.provider} model={props.model} onSelect={() => dialog.close()} />
-        <div class="shrink-0 border-t border-v2-border-border-muted px-4 py-3">
-          <button
-            type="button"
-            class="flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-[13px] font-[530] leading-text-compact tracking-[-0.04px] text-v2-text-text-base hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none"
-            onClick={manage}
-          >
-            <Icon name="outline-sliders" size="small" />
-            <span class="min-w-0 flex-1 truncate">{language.t("dialog.model.manage")}</span>
-          </button>
-        </div>
       </DialogBody>
     </Dialog>
   )

@@ -64,6 +64,7 @@ function SelectorStory(props: { plan: boolean }) {
         current={`openai:${current()}`}
         chatgptPlan={props.plan}
         select={(item) => setCurrent(item.id)}
+        variant={() => undefined}
         onManage={() => undefined}
         onClose={() => undefined}
       />

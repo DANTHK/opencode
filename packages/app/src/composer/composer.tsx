@@ -4,10 +4,12 @@ import { Button } from "@opencode/ui/button"
 import { useDialog } from "@opencode/ui/context/dialog"
 import { Icon } from "@opencode/ui/icon"
 import { Keybind } from "@opencode/ui/keybind"
-import { ProviderModelIcon } from "@/providers/models/provider-group"
+import { consoleModelGroup, ProviderModelIcon } from "@/providers/models/provider-group"
+import { consoleProviderName } from "@/providers/catalog/console"
 import { Tooltip } from "@opencode/ui/tooltip"
 import { ComposerEditor } from "./editor/editor"
 import { ModelSelectorPopover } from "@/providers/models/select-dialog"
+import { ModelDetails } from "@/providers/models/details"
 import { DialogSelectModelUnpaid } from "@/providers/models/unpaid"
 import { formatKeybind, useCommand } from "@/shell/commands/command"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -41,8 +43,8 @@ export function Composer(props: {
           <ComposerModelControl
             loading={props.model.model.loading}
             paid={props.model.model.paid}
-            title={language.t("command.model.choose")}
-            keybind={command.keybindParts("model.choose")}
+            title={language.t("command.model.picker")}
+            keybind={command.keybindParts("model.picker")}
             model={props.model.model.selection}
             provider={props.model.model.selection.current()?.provider}
             modelName={props.model.model.selection.current()?.name ?? language.t("dialog.model.select.title")}
@@ -68,6 +70,38 @@ function ComposerModelControl(props: {
 }) {
   const shouldAnimate = createMemo<boolean>((previous) => previous ?? props.loading)
   const mobile = createMediaQuery("(max-width: 767px)")
+  const command = useCommand()
+  const language = useLanguage()
+  let openPicker: (() => void) | undefined
+
+  command.register("composer-model-picker", () => [
+    {
+      id: "model.picker",
+      title: language.t("command.model.picker"),
+      description: language.t("command.model.picker.description"),
+      category: language.t("command.category.model"),
+      keybind: "mod+shift+'",
+      disabled: props.loading,
+      onSelect: () => {
+        if (props.paid || mobile()) {
+          openPicker?.()
+
+          return
+        }
+
+        props.onUnpaidClick()
+      },
+    },
+  ])
+  const managed = createMemo(() => consoleModelGroup(props.model.list()))
+
+  const providerName = (provider: { id: string; name: string }) => {
+    const group = managed()
+
+    return group?.providers.some((item) => item.id === provider.id)
+      ? consoleProviderName(group, provider.name)
+      : provider.name
+  }
 
   const content = () => (
     <>
@@ -90,13 +124,29 @@ function ComposerModelControl(props: {
     <Show when={!props.loading}>
       <Tooltip
         inactive={mobile()}
+        contentClass={props.model.current() ? "!p-0 rounded-md" : undefined}
         placement="top"
         gutter={4}
         value={
-          <>
-            {props.title}
-            <Keybind keys={props.keybind} variant="neutral" />
-          </>
+          <Show
+            when={props.model.current()}
+            fallback={
+              <>
+                {props.title}
+                <Keybind keys={props.keybind} variant="neutral" />
+              </>
+            }
+          >
+            {(model) => (
+              <div class="flex w-[188px] max-w-[calc(100vw-24px)] flex-col">
+                <ModelDetails model={model()} provider={providerName(model().provider)} />
+                <div class="flex h-7 min-w-0 items-center gap-2 border-t-[0.5px] border-v2-border-border-base px-2">
+                  <span class="min-w-0 flex-1 truncate text-v2-text-text-faint">{props.title}</span>
+                  <Keybind keys={props.keybind} variant="neutral" />
+                </div>
+              </div>
+            )}
+          </Show>
         }
       >
         <Show
@@ -134,6 +184,7 @@ function ComposerModelControl(props: {
               </Button>
             )}
             onClose={props.onClose}
+            ref={(open) => (openPicker = open)}
           />
         </Show>
       </Tooltip>

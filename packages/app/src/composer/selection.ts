@@ -134,9 +134,8 @@ export function createComposerModelSelection(input: {
     visible: models.visible,
     setVisibility: models.setVisibility,
     variant: {
-      configured() {
+      configured(model = current()) {
         const item = input.agent()
-        const model = current()
 
         if (!item || !model) return
         const global = configuredModel()
@@ -157,13 +156,14 @@ export function createComposerModelSelection(input: {
 
         return model && valid(model) ? model.variant : undefined
       },
-      current() {
-        const model = current()
+      current(item?: ModelKey) {
+        const model = item ? models.find(item) : current()
+        const same = !item || (current()?.provider.id === item.providerID && current()?.id === item.modelID)
 
         return resolveModelVariant({
-          variants: this.list(),
-          selected: this.selected(),
-          configured: this.configured(),
+          variants: Object.keys(model?.variants ?? {}),
+          selected: same ? this.selected() : undefined,
+          configured: this.configured(model),
           preferred: model ? models.variant.get({ providerID: model.provider.id, modelID: model.id }) : undefined,
         })
       },

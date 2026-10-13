@@ -323,17 +323,17 @@ test("keeps focus in a dialog that replaces the model dialog and returns it to t
 
   const models = page.getByRole("dialog", { name: "Select model", exact: true })
   await expect(models.getByRole("searchbox", { name: "Search models", exact: true })).toBeFocused()
-  await models.getByRole("button", { name: "Manage models", exact: true }).click()
+  await models.getByRole("button", { name: "Connect provider", exact: true }).click()
   await expect(models).toBeHidden()
 
-  const manage = page.getByRole("dialog", { name: "Manage models", exact: true })
-  const search = manage.getByRole("searchbox", { name: "Search models", exact: true })
-  await expect(search).toBeFocused()
+  const providers = page.getByRole("dialog", { name: "Connect provider", exact: true })
+  const focused = () => providers.evaluate((element) => element.contains(document.activeElement))
+  await expect.poll(focused).toBe(true)
   // Code behind the dialog that focuses the composer must not pull focus out of the open dialog.
   await editor.evaluate((element) => element.focus())
-  await expect(search).toBeFocused()
+  await expect.poll(focused).toBe(true)
   await page.keyboard.press("Escape")
-  await expect(manage).toBeHidden()
+  await expect(providers).toBeHidden()
   await expect(editor).toBeFocused()
   await page.keyboard.type(",")
   await expect(editor).toHaveText("keep, me")
@@ -443,7 +443,13 @@ test("marks a Console provider with its workspace only when it is also connected
     },
   })
 
-  await page.locator('[data-component="composer"] [data-action="composer-model"]').click()
+  const trigger = page.locator('[data-component="composer"] [data-action="composer-model"]')
+  await trigger.hover()
+  const details = page.getByRole("tooltip")
+  await expect(details.getByText("Console Model", { exact: true })).toBeVisible()
+  await expect(details.getByText("OpenCode", { exact: true })).toBeVisible()
+  await expect(details.getByText(/Anomaly \//)).toHaveCount(0)
+  await trigger.click()
   const menu = page.getByRole("menu")
   await expect(menu.getByRole("menuitemradio", { name: "Direct Gemini", exact: true })).toBeVisible()
   const headings = menu.locator('[data-slot="menu-v2-group-label"]')
