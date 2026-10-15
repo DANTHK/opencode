@@ -60,8 +60,6 @@ export const dict = {
   "command.message.next.description": "Go to the next user message",
   "command.model.choose": "Choose model",
   "command.model.choose.description": "Select a different model",
-  "command.model.picker": "Open model picker",
-  "command.model.picker.description": "Choose a model from the composer",
   "command.mcp.toggle": "Toggle MCPs",
   "command.mcp.toggle.description": "Toggle MCPs",
   "command.agent.cycle": "Cycle agent",
@@ -118,6 +116,9 @@ export const dict = {
   "dialog.model.manage.description": "Customize which models appear in the model selector.",
   "dialog.model.chatgptPlan": "Using ChatGPT plan",
   "dialog.model.chatgptManageUsage": "Manage usage",
+  "dialog.model.hint.navigate": "Navigate",
+  "dialog.model.hint.variant": "Variant",
+  "dialog.model.hint.select": "Select",
 
   "dialog.model.unpaid.freeModels.title": "Free models provided by OpenCode",
   "dialog.model.unpaid.addMore.title": "Add more models from popular providers",

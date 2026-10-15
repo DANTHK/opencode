@@ -43,8 +43,8 @@ export function Composer(props: {
           <ComposerModelControl
             loading={props.model.model.loading}
             paid={props.model.model.paid}
-            title={language.t("command.model.picker")}
-            keybind={command.keybindParts("model.picker")}
+            title={language.t("command.model.choose")}
+            keybind={command.keybindParts("model.choose")}
             model={props.model.model.selection}
             provider={props.model.model.selection.current()?.provider}
             modelName={props.model.model.selection.current()?.name ?? language.t("dialog.model.select.title")}
@@ -70,29 +70,6 @@ function ComposerModelControl(props: {
 }) {
   const shouldAnimate = createMemo<boolean>((previous) => previous ?? props.loading)
   const mobile = createMediaQuery("(max-width: 767px)")
-  const command = useCommand()
-  const language = useLanguage()
-  let openPicker: (() => void) | undefined
-
-  command.register("composer-model-picker", () => [
-    {
-      id: "model.picker",
-      title: language.t("command.model.picker"),
-      description: language.t("command.model.picker.description"),
-      category: language.t("command.category.model"),
-      keybind: "mod+shift+'",
-      disabled: props.loading,
-      onSelect: () => {
-        if (props.paid || mobile()) {
-          openPicker?.()
-
-          return
-        }
-
-        props.onUnpaidClick()
-      },
-    },
-  ])
   const managed = createMemo(() => consoleModelGroup(props.model.list()))
 
   const providerName = (provider: { id: string; name: string }) => {
@@ -184,7 +161,6 @@ function ComposerModelControl(props: {
               </Button>
             )}
             onClose={props.onClose}
-            ref={(open) => (openPicker = open)}
           />
         </Show>
       </Tooltip>
