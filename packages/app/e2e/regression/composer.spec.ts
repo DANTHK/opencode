@@ -323,17 +323,17 @@ test("keeps focus in a dialog that replaces the model dialog and returns it to t
 
   const models = page.getByRole("dialog", { name: "Select model", exact: true })
   await expect(models.getByRole("searchbox", { name: "Search models", exact: true })).toBeFocused()
-  await models.getByRole("button", { name: "Connect provider", exact: true }).click()
+  await models.getByRole("button", { name: "Manage models", exact: true }).click()
   await expect(models).toBeHidden()
 
-  const providers = page.getByRole("dialog", { name: "Connect provider", exact: true })
-  const focused = () => providers.evaluate((element) => element.contains(document.activeElement))
-  await expect.poll(focused).toBe(true)
+  const manage = page.getByRole("dialog", { name: "Manage models", exact: true })
+  const search = manage.getByRole("searchbox", { name: "Search models", exact: true })
+  await expect(search).toBeFocused()
   // Code behind the dialog that focuses the composer must not pull focus out of the open dialog.
   await editor.evaluate((element) => element.focus())
-  await expect.poll(focused).toBe(true)
+  await expect(search).toBeFocused()
   await page.keyboard.press("Escape")
-  await expect(providers).toBeHidden()
+  await expect(manage).toBeHidden()
   await expect(editor).toBeFocused()
   await page.keyboard.type(",")
   await expect(editor).toHaveText("keep, me")
