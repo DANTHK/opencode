@@ -322,6 +322,7 @@ export function ModelSelectorPopover(props: {
     >
       <ModelSelectorDrawer
         trigger={props.trigger}
+        onManage={manage}
         model={props.model}
         provider={props.provider}
         onConnect={props.unpaid ? connect : undefined}
@@ -338,6 +339,7 @@ function ModelSelectorDrawer(props: {
   provider?: string
   chatgptPlan?: boolean
   onClose: () => void
+  onManage: () => void
   onConnect?: () => void
 }) {
   const language = useLanguage()
@@ -346,7 +348,7 @@ function ModelSelectorDrawer(props: {
     open: boolean
     loaded: boolean
     restoreTrigger: boolean
-    action?: "select" | "connect"
+    action?: "select" | "manage" | "connect"
   }>({
     open: false,
     loaded: false,
@@ -384,6 +386,12 @@ function ModelSelectorDrawer(props: {
               const action = store.action
               setStore("action", undefined)
 
+              if (action === "manage") {
+                props.onManage()
+
+                return
+              }
+
               if (action === "connect") {
                 props.onConnect?.()
 
@@ -408,33 +416,39 @@ function ModelSelectorDrawer(props: {
                   onSelect={() => setStore({ open: false, action: "select", restoreTrigger: false })}
                 />
               </div>
-              <Show when={props.onConnect || props.chatgptPlan}>
-                <div data-slot="model-selector-actions" class="flex flex-col gap-2">
-                  <Show when={props.onConnect}>
-                    <Button
-                      variant="ghost"
-                      class="w-full !h-10 !justify-start"
-                      icon="plus"
-                      onClick={() => setStore({ open: false, action: "connect", restoreTrigger: false })}
+              <div data-slot="model-selector-actions" class="flex flex-col gap-2">
+                <Button
+                  variant="ghost"
+                  class="w-full !h-10 !justify-start"
+                  icon="outline-sliders"
+                  onClick={() => setStore({ open: false, action: "manage", restoreTrigger: false })}
+                >
+                  {language.t("dialog.model.manage")}
+                </Button>
+                <Show when={props.onConnect}>
+                  <Button
+                    variant="ghost"
+                    class="w-full !h-10 !justify-start"
+                    icon="plus"
+                    onClick={() => setStore({ open: false, action: "connect", restoreTrigger: false })}
+                  >
+                    {language.t("command.provider.connect")}
+                  </Button>
+                </Show>
+                <Show when={props.chatgptPlan}>
+                  <div class="flex min-h-10 items-center gap-2 border-t border-v2-border-border-muted px-3 py-2 text-[13px] leading-5 text-v2-text-text-base">
+                    <ProviderModelIcon provider={{ id: "openai", name: "OpenAI" }} class="shrink-0" />
+                    <span class="min-w-0 flex-1 truncate">{language.t("dialog.model.chatgptPlan")}</span>
+                    <ExternalLink
+                      href="https://chatgpt.com/settings/usage"
+                      class="flex shrink-0 items-center gap-1 rounded-sm text-v2-text-text-muted no-underline hover:text-v2-text-text-base focus-visible:outline focus-visible:outline-2"
                     >
-                      {language.t("command.provider.connect")}
-                    </Button>
-                  </Show>
-                  <Show when={props.chatgptPlan}>
-                    <div class="flex min-h-10 items-center gap-2 border-t border-v2-border-border-muted px-3 py-2 text-[13px] leading-5 text-v2-text-text-base">
-                      <ProviderModelIcon provider={{ id: "openai", name: "OpenAI" }} class="shrink-0" />
-                      <span class="min-w-0 flex-1 truncate">{language.t("dialog.model.chatgptPlan")}</span>
-                      <ExternalLink
-                        href="https://chatgpt.com/settings/usage"
-                        class="flex shrink-0 items-center gap-1 rounded-sm text-v2-text-text-muted no-underline hover:text-v2-text-text-base focus-visible:outline focus-visible:outline-2"
-                      >
-                        {language.t("dialog.model.chatgptManageUsage")}
-                        <Icon name="arrow-up-right" size="small" />
-                      </ExternalLink>
-                    </div>
-                  </Show>
-                </div>
-              </Show>
+                      {language.t("dialog.model.chatgptManageUsage")}
+                      <Icon name="arrow-up-right" size="small" />
+                    </ExternalLink>
+                  </div>
+                </Show>
+              </div>
             </div>
           </MobilePanelDrawer>
         </Suspense>
