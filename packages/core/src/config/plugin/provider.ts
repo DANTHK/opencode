@@ -121,6 +121,15 @@ export const Plugin = define({
             if (config.body !== undefined) model.body = Provider.mergeOverlay(model.body, config.body)
             if (config.capabilities !== undefined)
               model.capabilities = Model.mergeCapabilities(config.capabilities, model.capabilities)
+            if (config.limit !== undefined) model.limit = { ...model.limit, ...config.limit }
+            // Configured reasoning replaces the base variants; configured variants still overlay them below.
+            if (config.capabilities?.reasoning !== undefined)
+              model.variants = [
+                ...Variant.resolve(
+                  { ...model, package: model.package ?? models.provider.get(providerID)?.provider.package },
+                  Variant.supports(config.capabilities.reasoning),
+                ),
+              ]
             if (config.variants !== undefined) {
               model.variants ??= []
               for (const variant of config.variants) {
@@ -148,9 +157,8 @@ export const Plugin = define({
               }))
             }
             if (config.disabled !== undefined) model.enabled = !config.disabled
-            if (config.limit !== undefined) model.limit = { ...model.limit, ...config.limit }
           })
-          if (config.variants === undefined && !source?.base)
+          if (config.variants === undefined && config.capabilities?.reasoning === undefined && !source?.base)
             models.update(providerID, id, (model) => {
               model.variants = [
                 ...Variant.resolve({
