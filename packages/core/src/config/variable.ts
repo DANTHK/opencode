@@ -3,6 +3,7 @@ export * as ConfigVariable from "./variable.js"
 import os from "os"
 import path from "path"
 import { Effect } from "effect"
+import { type ParseError, parse } from "jsonc-parser"
 import { FSUtil } from "@opencode/util/fs-util"
 import { InvalidError } from "../v1/config/error.js"
 
@@ -24,13 +25,16 @@ type SubstituteInput = ParseSource & {
 
 /** Apply {env:VAR} and {file:path} substitutions to config text. */
 export const substitute = Effect.fn("ConfigVariable.substitute")(function* (input: SubstituteInput) {
-  const env = (name: string) => (input.env?.[name] ?? process.env[name]) || ""
-  // Escape values inside JSON strings like {file:}; unquoted references stay raw.
-  const text = input.text.replace(/"(?:[^"\\\n]|\\.)*"|\{env:([^}]+)\}/g, (match, name?: string) =>
-    name === undefined
-      ? match.replace(/\{env:([^}]+)\}/g, (_, inner: string) => JSON.stringify(env(inner)).slice(1, -1))
-      : env(name),
-  )
+  const env = (escape: boolean) =>
+    input.text.replace(/\{env:([^}]+)\}/g, (_, name: string) => {
+      const value = (input.env?.[name] ?? process.env[name]) || ""
+      return escape ? JSON.stringify(value).slice(1, -1) : value
+    })
+  // Escape only when raw values break the JSON (e.g. Windows paths), so configs that parse today keep their meaning.
+  const raw = env(false)
+  const errors: ParseError[] = []
+  if (raw !== input.text) parse(raw, errors, { allowTrailingComma: true })
+  const text = errors.length ? env(true) : raw
   if (!text.includes("{file:")) return text
   return yield* substituteFiles(input, text)
 })

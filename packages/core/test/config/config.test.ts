@@ -1335,7 +1335,9 @@ describe("Config", () => {
         const previous = {
           token: process.env.OPENCODE_TEST_MCP_TOKEN,
           missing: process.env.OPENCODE_TEST_MISSING,
+          flag: process.env.OPENCODE_TEST_FLAG,
         }
+        process.env.OPENCODE_TEST_FLAG = "false"
         process.env.OPENCODE_TEST_MCP_TOKEN = String.raw`C:\Users\new\"secret"`
         delete process.env.OPENCODE_TEST_MISSING
         return previous
@@ -1353,6 +1355,7 @@ describe("Config", () => {
                     `{
                       // Ignored reference: {file:.}
                       "username": "user-{env:OPENCODE_TEST_MISSING}",
+                      "snapshots": {env:OPENCODE_TEST_FLAG},
                       "mcp": {
                         "servers": {
                           "remote": {
@@ -1375,6 +1378,7 @@ describe("Config", () => {
                 const config = yield* Config.Service
                 const document = (yield* config.entries()).find((entry) => entry.type === "document")
                 expect(document?.info.username).toBe("user-")
+                expect(document?.info.snapshots).toBe(false)
                 const remote = document?.info.mcp?.servers?.remote
                 expect(remote?.type).toBe("remote")
                 if (remote?.type !== "remote") return
@@ -1393,6 +1397,8 @@ describe("Config", () => {
           else process.env.OPENCODE_TEST_MCP_TOKEN = previous.token
           if (previous.missing === undefined) delete process.env.OPENCODE_TEST_MISSING
           else process.env.OPENCODE_TEST_MISSING = previous.missing
+          if (previous.flag === undefined) delete process.env.OPENCODE_TEST_FLAG
+          else process.env.OPENCODE_TEST_FLAG = previous.flag
         }),
     ),
   )
