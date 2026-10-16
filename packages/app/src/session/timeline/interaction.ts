@@ -52,6 +52,7 @@ export function createSessionTimelineInteraction(session: SessionModel) {
   }
 
   let scroller: HTMLDivElement | undefined
+  let scrollerHeight = 0
   let dockHeight = 0
   // The history entry whose tool call was already revealed.
   let revealed: string | undefined
@@ -278,6 +279,7 @@ export function createSessionTimelineInteraction(session: SessionModel) {
       session.identity.sessionKey,
       () => {
         pin()
+        scrollerHeight = 0
         setState("messageID", undefined)
         setState("pendingMessage", undefined)
         setState("scroll", { overflow: false, jump: false })
@@ -326,6 +328,38 @@ export function createSessionTimelineInteraction(session: SessionModel) {
   createResizeObserver(
     () => state.refs.content,
     () => {
+      if (scroller) scheduleScrollState(scroller)
+      fill()
+    },
+  )
+  createResizeObserver(
+    () => state.refs.scroller,
+    ({ height }) => {
+      const next = Math.ceil(height)
+
+      if (scrollerHeight === 0) {
+        if (next > 0) scrollerHeight = next
+
+        if (scroller) scheduleScrollState(scroller)
+        fill()
+        return
+      }
+
+      if (next === scrollerHeight) {
+        if (scroller) scheduleScrollState(scroller)
+        fill()
+        return
+      }
+
+      const delta = next - scrollerHeight
+      const stick = scroller
+        ? pinned() || scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < 10 + Math.max(0, -delta)
+        : false
+
+      scrollerHeight = next
+
+      if (stick) scrollToEnd()
+
       if (scroller) scheduleScrollState(scroller)
       fill()
     },
