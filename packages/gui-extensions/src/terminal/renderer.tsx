@@ -1,5 +1,9 @@
-import { createMemo, lazy, on, onCleanup, Suspense } from "solid-js"
-import { Command, createKeyed, onIdle, Panel, type Setup } from "../sdk"
+import { createMemo, lazy, on, onCleanup, Show, Suspense } from "solid-js"
+import { Command, createKeyed, onIdle, Panel, Slot, type Setup } from "../sdk"
+import { Icon } from "@opencode/ui/icon"
+import { IconButton } from "@opencode/ui/icon-button"
+import { Keybind } from "@opencode/ui/keybind"
+import { Tooltip } from "@opencode/ui/tooltip"
 import type Terminal from "./index"
 import { createTerminalModel, type TerminalWorkspace } from "./model"
 
@@ -122,6 +126,51 @@ const setup: Setup<typeof Terminal> = (ctx) => {
       },
     }),
   )
+
+  const terminalKeybind = () => [...ctx.keybinds.keybind(`${ctx.id}.toggle`)]
+
+  ctx.add(Slot, {
+    at: "session.header",
+    order: 21,
+    render: (input) => (
+      <Tooltip
+        placement="bottom"
+        value={
+          <>
+            {ctx.t("command.toggle")}
+            <Show when={terminalKeybind().length > 0}>
+              <Keybind keys={terminalKeybind()} variant="neutral" />
+            </Show>
+          </>
+        }
+      >
+        <IconButton
+          type="button"
+          variant="ghost-muted"
+          size="large"
+          class="shrink-0"
+          state={layout.dock.opened(input.session) ? "pressed" : undefined}
+          onClick={() => {
+            const target = model.load(input.session)
+
+            if (layout.dock.opened(input.session)) {
+              target.cancelFocus()
+              layout.close(DOCK, input.session)
+
+              return
+            }
+
+            layout.open(DOCK, input.session)
+            target.requestFocus(target.active())
+          }}
+          aria-label={ctx.t("command.toggle")}
+          aria-expanded={layout.dock.opened(input.session)}
+          aria-controls="terminal-panel"
+          icon={<Icon name="terminal" />}
+        />
+      </Tooltip>
+    ),
+  })
 
   const TerminalPanel = lazy(() => import("./panel"))
 
