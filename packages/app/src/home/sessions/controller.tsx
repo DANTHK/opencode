@@ -1,7 +1,5 @@
 import type { SessionInfo } from "@opencode/client/promise"
 import { useDialog } from "@opencode/ui/context/dialog"
-import { Button } from "@opencode/ui/button"
-import { DialogFooter, DialogHeader, DialogTitleGroup, Dialog } from "@opencode/ui/dialog"
 import { skipToken, useQuery, useQueryClient } from "@tanstack/solid-query"
 import { type Accessor, createEffect, createMemo, type JSX, startTransition, untrack } from "solid-js"
 import { notifySessionTabsRemoved } from "@/shell/titlebar/session-events"
@@ -22,7 +20,7 @@ import { sessionTreeIDs } from "@/session/requests/session-request-tree"
 import { pathKey } from "@/workspaces/path-key"
 import { fetchSessionExport, saveSessionExport, sessionExportFilename } from "@/session/commands/export"
 import { usePlatform } from "@/runtime/platform/platform"
-import { sessionLabel, sessionTitle } from "@/session/title"
+import { sessionLabel } from "@/session/title"
 import { showToast } from "@/shell/notifications/toast"
 import { archiveHomeSession } from "./archive"
 import type { HomeController } from "../model"
@@ -269,34 +267,6 @@ export function createHomeSessionsController(home: HomeController) {
       })
   }
 
-  function DeleteDialog(props: { server: ServerConnection.Key; session: SessionInfo }) {
-    const name = () => sessionTitle(props.session.title) ?? language.t("command.session.new")
-
-    const confirm = async () => {
-      await remove(props.server, props.session)
-      dialog.close()
-    }
-
-    return (
-      <Dialog fit>
-        <DialogHeader hideClose>
-          <DialogTitleGroup
-            title={language.t("session.delete.title")}
-            description={language.t("session.delete.confirm", { name: name() })}
-          />
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => dialog.close()}>
-            {language.t("common.cancel")}
-          </Button>
-          <Button variant="danger" onClick={confirm}>
-            {language.t("session.delete.button")}
-          </Button>
-        </DialogFooter>
-      </Dialog>
-    )
-  }
-
   return {
     copy: {
       language,
@@ -378,8 +348,7 @@ export function createHomeSessionsController(home: HomeController) {
       },
       rename,
       export: exportSession,
-      showDelete: (server: ServerConnection.Key, session: SessionInfo) =>
-        dialog.show(() => <DeleteDialog server={server} session={session} />),
+      remove,
     },
     tab: {
       isOpen: (record: HomeSessionRecord) => {

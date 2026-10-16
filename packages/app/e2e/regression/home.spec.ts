@@ -19,7 +19,7 @@ async function openHome(page: Page, input: Parameters<typeof mockStressTimeline>
   await page.goto("/")
 }
 
-test("the session context menu renames, exports, and deletes a Home session", async ({ page }) => {
+test("Home sessions support context menu rename and export, and immediate row deletion", async ({ page }) => {
   await openHome(page)
   const target = row(page, fixture.expected.targetTitle)
   await expect(target).toBeVisible()
@@ -34,7 +34,7 @@ test("the session context menu renames, exports, and deletes a Home session", as
   const box = await target.boundingBox()
   await target.click({ button: "right", position: { x: 48, y: 12 } })
   await expect(page).toHaveURL("/")
-  await expect(page.getByRole("menuitem")).toHaveText(["Rename", "Export…", "Delete…"])
+  await expect(page.getByRole("menuitem")).toHaveText(["Rename", "Export…"])
   const menu = await page.locator('[data-component="menu-v2-content"]').boundingBox()
   expect(Math.abs((menu?.x ?? 0) - (box?.x ?? 0) - 48)).toBeLessThan(4)
 
@@ -63,17 +63,18 @@ test("the session context menu renames, exports, and deletes a Home session", as
   await page.getByRole("menuitem", { name: "Export…" }).click()
   expect((await download).suggestedFilename()).toBe("renamed-from-home.json")
 
-  await renamedRow.click({ button: "right" })
-  await page.getByRole("menuitem", { name: "Delete…" }).click()
-  const dialog = page.getByRole("dialog")
-  await expect(dialog).toContainText('Delete session "Renamed from Home"?')
-
   const removed = page.waitForRequest(
     (request) => request.method() === "DELETE" && new URL(request.url()).pathname.endsWith(`/${fixture.targetID}`),
   )
 
-  await dialog.getByRole("button", { name: "Delete session" }).click()
+  await page
+    .locator('[data-component="home-session-row-container"]')
+    .filter({ has: renamedRow })
+    .getByRole("button", { name: "Delete session", exact: true })
+    .click()
   await removed
+  await expect(page.getByRole("dialog")).toHaveCount(0)
+  await expect(page).toHaveURL("/")
   await expect(renamedRow).toBeHidden()
 })
 

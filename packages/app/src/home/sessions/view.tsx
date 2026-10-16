@@ -653,7 +653,7 @@ function HomeSessionRow(
           aria-expanded={!!menu()}
           class={`
             flex h-10 min-w-0 w-full flex-1 shrink-0 cursor-default items-center rounded-[6px] border-0
-            bg-transparent py-3 ps-1.5 pe-3 md:ps-3 md:pe-10 text-start text-v2-text-text-muted [font-weight:530]
+            bg-transparent py-3 ps-1.5 pe-10 md:ps-3 text-start text-v2-text-text-muted [font-weight:530]
             transition-[background-color,color,box-shadow] duration-[120ms] ease-in-out
             hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none
           `}
@@ -783,13 +783,22 @@ function HomeSessionRow(
             <Menu.Item onSelect={() => void props.onExportSession(props.server, props.record.session)}>
               {props.language.t("common.export")}…
             </Menu.Item>
-            <Menu.Separator />
-            <Menu.Item onSelect={() => props.onDeleteSession(props.server, props.record.session)}>
-              {props.language.t("common.delete")}…
-            </Menu.Item>
           </Menu.Content>
         </Menu.Portal>
       </Menu>
+      <Show when={!editor()}>
+        <div class="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center">
+          <Tooltip class="flex shrink-0 items-center" placement="bottom" value={props.language.t("session.delete.button")}>
+            <IconButton
+              variant="ghost-muted"
+              size="large"
+              icon={<Icon name="trash" />}
+              aria-label={props.language.t("session.delete.button")}
+              onClick={() => props.onDeleteSession(props.server, props.record.session)}
+            />
+          </Tooltip>
+        </div>
+      </Show>
       <Show when={SHOW_HOME_SESSION_ARCHIVE}>
         <div
           class={`

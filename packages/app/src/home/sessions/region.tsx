@@ -36,7 +36,7 @@ export function HomeSessions(props: {
           onArchiveSession={props.sessions.session.archive}
           onRenameSession={props.sessions.session.rename}
           onExportSession={props.sessions.session.export}
-          onDeleteSession={props.sessions.session.showDelete}
+          onDeleteSession={props.sessions.session.remove}
           onSetHoverTarget={props.scroll.viewport.setHoverTarget}
           onSetThumbTrack={props.scroll.viewport.setThumbTrack}
           onSetContent={props.scroll.header.setContent}
