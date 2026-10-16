@@ -559,7 +559,7 @@ See the [providers guide](/providers) for credentials, custom endpoints, provide
 
 ## Variables
 
-You can use variable substitution in your config files to reference environment variables and file contents. Place references inside JSON strings; the value is inserted as-is.
+You can use variable substitution in your config files to reference environment variables and file contents. Place references inside JSON strings.
 
 ### Env vars
 
@@ -601,9 +601,9 @@ Use `{file:path/to/file}` to substitute the contents of a file:
 File paths can be:
 
 - Relative to the config file directory
-- Or absolute paths starting with `/` or `~`
+- Absolute, or starting with `~/` for your home directory
 
-If the file is missing or unreadable, it will be replaced with an empty string.
+If the file does not exist, it will be replaced with an empty string.
 
 These are useful for:
 

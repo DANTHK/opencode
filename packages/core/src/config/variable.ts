@@ -31,12 +31,11 @@ export const substitute = Effect.fn("ConfigVariable.substitute")(function* (inpu
       return escape ? JSON.stringify(value).slice(1, -1) : value
     })
   // Escape only when raw values break the JSON (e.g. Windows paths), so configs that parse today keep their meaning.
-  const raw = env(false)
+  const raw = yield* substituteFiles(input, env(false))
   const errors: ParseError[] = []
-  if (raw !== input.text) parse(raw, errors, { allowTrailingComma: true })
-  const text = errors.length ? env(true) : raw
-  if (!text.includes("{file:")) return text
-  return yield* substituteFiles(input, text)
+  if (input.text.includes("{env:")) parse(raw, errors, { allowTrailingComma: true })
+  if (!errors.length) return raw
+  return yield* substituteFiles(input, env(true))
 })
 
 const substituteFiles = Effect.fnUntraced(function* (input: SubstituteInput, text: string) {
