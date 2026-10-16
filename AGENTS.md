@@ -8,6 +8,8 @@
 
 ## Live V2 TUI Testing
 
+- For local desktop builds, keep the bundled CLI version aligned with the terminal's installed `opencode --version`. When compiling the CLI from source for desktop packaging, pass that version (without the `opencode v` prefix) as `OPENCODE_VERSION`. Bundle the matching executable and generate its version marker from the actual CLI package; do not only relabel a different binary.
+
 - Run `bun run dev:live` from a development worktree to test its TUI against the currently elected `opencode` background server and live sessions.
 - Pass a directory after the script when needed, for example `bun run dev:live /path/to/project`.
 - The script discovers the server with `opencode service status`, injects its private local credential from `opencode service get password`, and uses the `dev` TUI storage channel so tabs and other client-local state match the installed client.
