@@ -132,44 +132,50 @@ const setup: Setup<typeof Terminal> = (ctx) => {
   ctx.add(Slot, {
     at: "session.header",
     order: 21,
-    render: (input) => (
-      <Tooltip
-        placement="bottom"
-        value={
-          <>
-            {ctx.t("command.toggle")}
-            <Show when={terminalKeybind().length > 0}>
-              <Keybind keys={terminalKeybind()} variant="neutral" />
-            </Show>
-          </>
-        }
-      >
-        <IconButton
-          type="button"
-          variant="ghost-muted"
-          size="large"
-          class="shrink-0"
-          state={layout.dock.opened(input.session) ? "pressed" : undefined}
-          onClick={() => {
-            const target = model.load(input.session)
+    render: (input) => {
+      const session = () => ctx.sessions.current() ?? input.session
 
-            if (layout.dock.opened(input.session)) {
-              target.cancelFocus()
-              layout.close(DOCK, input.session)
-
-              return
+      return (
+        <Show when={input.active}>
+          <Tooltip
+            placement="bottom"
+            value={
+              <>
+                {ctx.t("command.toggle")}
+                <Show when={terminalKeybind().length > 0}>
+                  <Keybind keys={terminalKeybind()} variant="neutral" />
+                </Show>
+              </>
             }
+          >
+            <IconButton
+              type="button"
+              variant="ghost-muted"
+              size="large"
+              class="shrink-0"
+              state={layout.dock.opened(session()) ? "pressed" : undefined}
+              onClick={() => {
+                const target = model.load(session())
 
-            layout.open(DOCK, input.session)
-            target.requestFocus(target.active())
-          }}
-          aria-label={ctx.t("command.toggle")}
-          aria-expanded={layout.dock.opened(input.session)}
-          aria-controls="terminal-panel"
-          icon={<Icon name="terminal" />}
-        />
-      </Tooltip>
-    ),
+                if (layout.dock.opened(session())) {
+                  target.cancelFocus()
+                  layout.close(DOCK, session())
+
+                  return
+                }
+
+                layout.open(DOCK, session())
+                target.requestFocus(target.active())
+              }}
+              aria-label={ctx.t("command.toggle")}
+              aria-expanded={layout.dock.opened(session())}
+              aria-controls="terminal-panel"
+              icon={<Icon name="terminal" />}
+            />
+          </Tooltip>
+        </Show>
+      )
+    },
   })
 
   const TerminalPanel = lazy(() => import("./panel"))
