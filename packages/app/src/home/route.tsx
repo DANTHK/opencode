@@ -3,7 +3,6 @@ import { createMediaQuery } from "@solid-primitives/media"
 import { Show } from "solid-js"
 import { createHomeController } from "./model"
 import { createHomeProjectsController } from "./projects/controller"
-import { HomeUtilityNav } from "./projects/view"
 import { HomeProjects } from "./projects/region"
 import { createHomeScrollController } from "./scroll"
 import { createHomeSessionSearchController } from "./sessions/search"
@@ -51,14 +50,6 @@ export function Home() {
           <HomeSessions sessions={sessions} search={search} scroll={scroll} />
         </div>
       </ScrollView>
-      <div class="hidden shrink-0 px-3 py-2 md:block lg:hidden">
-        <HomeUtilityNav
-          class="flex"
-          onOpenSettings={projects.utility.settings}
-          onOpenHelp={projects.utility.help}
-          language={projects.copy.language}
-        />
-      </div>
     </div>
   )
 }

@@ -754,6 +754,30 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
                                 <TitlebarItems items={titlebarItems} vertical />
                               </div>
                             </Show>
+                            <div class="mt-1 flex w-full shrink-0 flex-col gap-1">
+                              <button
+                                type="button"
+                                data-action="vertical-tabs-settings"
+                                data-state={layout.route().type === "settings" ? "pressed" : undefined}
+                                class="group flex h-7 w-full shrink-0 items-center gap-1.5 rounded-[6px] ps-1.5 pe-2 text-[13px] leading-4 text-v2-text-text-faint hover:text-v2-text-text-base data-[state=pressed]:text-v2-text-text-base"
+                                onClick={() => openSettings()}
+                                aria-label={language.t("sidebar.settings")}
+                                aria-pressed={layout.route().type === "settings"}
+                              >
+                                <Icon name="settings-gear" class="shrink-0" size="small" />
+                                <span class="min-w-0 truncate">{language.t("sidebar.settings")}</span>
+                              </button>
+                              <button
+                                type="button"
+                                data-action="vertical-tabs-help"
+                                class="group flex h-7 w-full shrink-0 items-center gap-1.5 rounded-[6px] ps-1.5 pe-2 text-[13px] leading-4 text-v2-text-text-faint hover:text-v2-text-text-base"
+                                onClick={() => platform.openExternal("https://opencode.ai/desktop-feedback")}
+                                aria-label={language.t("sidebar.help")}
+                              >
+                                <Icon name="help" class="shrink-0" size="small" />
+                                <span class="min-w-0 truncate">{language.t("sidebar.help")}</span>
+                              </button>
+                            </div>
                           </Portal>
                         )}
                       </Show>
