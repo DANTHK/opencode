@@ -51,7 +51,7 @@
   --container-7xl: 80rem;
   /* Shared by the session timeline, composer dock, and drop target so their edges stay aligned.
      The composer dock's 12px gutter leaves the design's 720px composer. */
-  --container-session: 744px;
+  --container-session: clamp(744px, 70vw, 1200px);
 
   --font-sans: var(--font-family-sans);
   --font-sans--font-feature-settings: var(--font-family-sans--font-feature-settings);
