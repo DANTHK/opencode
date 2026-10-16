@@ -1336,7 +1336,7 @@ describe("Config", () => {
           token: process.env.OPENCODE_TEST_MCP_TOKEN,
           missing: process.env.OPENCODE_TEST_MISSING,
         }
-        process.env.OPENCODE_TEST_MCP_TOKEN = "secret"
+        process.env.OPENCODE_TEST_MCP_TOKEN = String.raw`C:\Users\new\"secret"`
         delete process.env.OPENCODE_TEST_MISSING
         return previous
       }),
@@ -1379,7 +1379,7 @@ describe("Config", () => {
                 expect(remote?.type).toBe("remote")
                 if (remote?.type !== "remote") return
                 expect(remote.headers).toEqual({
-                  Authorization: "Bearer secret",
+                  Authorization: String.raw`Bearer C:\Users\new\"secret"`,
                   "X-Token": 'file\n"token"',
                   "X-Missing": "Bearer ",
                 })
