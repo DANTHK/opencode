@@ -14,6 +14,8 @@ import { Credential } from "@opencode/core/credential"
 import { ConfigV1 } from "../fixture/v1-config/config"
 import { ConfigPermissionV1 } from "@opencode/core/v1/config/permission"
 import { ConfigNormalize } from "@opencode/core/config/normalize"
+import { ConfigVariable } from "@opencode/core/config/variable"
+import { FSUtil } from "@opencode/util/fs-util"
 import { Watcher } from "@opencode/core/filesystem/watcher"
 import { Bus } from "@opencode/core/bus"
 import { Global } from "@opencode/util/global"
@@ -1401,6 +1403,19 @@ describe("Config", () => {
           else process.env.OPENCODE_TEST_FLAG = previous.flag
         }),
     ),
+  )
+
+  it.effect("keeps env values unescaped when the config already parses", () =>
+    Effect.gen(function* () {
+      const text = yield* ConfigVariable.substitute({
+        type: "virtual",
+        source: "test",
+        dir: "/",
+        text: '{ "quoted": "{env:QUOTED}", "fragment": {env:FRAGMENT} }',
+        env: { QUOTED: String.raw`a\"b`, FRAGMENT: '{"k":"v"}' },
+      })
+      expect(JSON.parse(text)).toEqual({ quoted: 'a"b', fragment: { k: "v" } })
+    }).pipe(Effect.provide(AppNodeBuilder.build(FSUtil.node))),
   )
 
   it.live("does not load legacy config.json files", () =>
