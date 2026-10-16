@@ -4,7 +4,6 @@ import os from "os"
 import path from "path"
 import { Effect } from "effect"
 import { FSUtil } from "@opencode/util/fs-util"
-import { InvalidError } from "../v1/config/error.js"
 
 type ParseSource =
   | {
@@ -55,14 +54,7 @@ const substituteFiles = Effect.fnUntraced(function* (input: SubstituteInput, tex
     const filePath = token.slice("{file:".length, -1)
     const expandedPath = filePath.startsWith("~/") ? path.join(os.homedir(), filePath.slice(2)) : filePath
     const resolvedPath = path.isAbsolute(expandedPath) ? expandedPath : path.resolve(configDir, expandedPath)
-    const fileContent = yield* fs
-      .readFileStringSafe(resolvedPath)
-      .pipe(
-        Effect.mapError(
-          (error) =>
-            new InvalidError({ path: configSource, message: `bad file reference: "${token}"` }, { cause: error }),
-        ),
-      )
+    const fileContent = yield* fs.readFileStringSafe(resolvedPath).pipe(Effect.orElseSucceed(() => undefined))
     // Like a missing {env:VAR}, a missing or unreadable file substitutes empty so one stale secret
     // reference cannot take down every Location that loads this config.
     if (fileContent === undefined)
