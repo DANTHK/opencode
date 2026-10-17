@@ -406,6 +406,8 @@ export function HomeSessionStatusController(props: {
     () => props.server,
     () => props.record.session.id,
     () => true,
+    // Home rows can come from the fetched index before the session is loaded.
+    () => props.record.session,
   )
 
   return props.render({
